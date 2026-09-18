@@ -1,15 +1,17 @@
 """
-Unit tests for impact_analyzer.py
+Unit tests for impact analyzer and ego graph traversal.
 """
 import unittest
 import networkx as nx
 
-from code_impact_graph_rag.impact_analyzer import extract_ego_graph, analyze_impact_summary
+from traversal.ego_graph import extract_ego_graph
+from traversal.impact_analyzer import analyze_impact_summary
+from core.types import EdgeType
 
 
 class TestImpactAnalyzer(unittest.TestCase):
     def setUp(self):
-        # Construct graph:
+        # Graph chain:
         # func_c (def) <--[E_invoke]-- ref:func_c <--[E_contain]-- func_b (def) <--[E_invoke]-- ref:func_b <--[E_contain]-- func_a (def)
         self.graph = nx.DiGraph()
 
@@ -22,17 +24,17 @@ class TestImpactAnalyzer(unittest.TestCase):
         for n in [self.node_c_def, self.node_b_def, self.node_b_ref, self.node_a_def, self.node_a_ref]:
             self.graph.add_node(n["node_id"], **n)
 
-        # Containment & Invocation edges
-        self.graph.add_edge("b.py:L1:def:func_b", "b.py:L2:ref:func_c", edge_type="E_contain")
-        self.graph.add_edge("b.py:L2:ref:func_c", "c.py:L1:def:func_c", edge_type="E_invoke")
+        # Edges
+        self.graph.add_edge("b.py:L1:def:func_b", "b.py:L2:ref:func_c", edge_type=EdgeType.E_CONTAIN.value)
+        self.graph.add_edge("b.py:L2:ref:func_c", "c.py:L1:def:func_c", edge_type=EdgeType.E_INVOKE.value)
 
-        self.graph.add_edge("a.py:L1:def:func_a", "a.py:L2:ref:func_b", edge_type="E_contain")
-        self.graph.add_edge("a.py:L2:ref:func_b", "b.py:L1:def:func_b", edge_type="E_invoke")
+        self.graph.add_edge("a.py:L1:def:func_a", "a.py:L2:ref:func_b", edge_type=EdgeType.E_CONTAIN.value)
+        self.graph.add_edge("a.py:L2:ref:func_b", "b.py:L1:def:func_b", edge_type=EdgeType.E_INVOKE.value)
 
     def test_ego_graph_traversal(self):
         seed_nodes = [self.node_c_def]
-        
-        # 1-hop traversal should reach node_b_ref
+
+        # 1-hop traversal reaches node_b_ref
         ego_1 = extract_ego_graph(self.graph, seed_nodes, k=1)
         self.assertIn("b.py:L2:ref:func_c", ego_1)
 
@@ -45,10 +47,10 @@ class TestImpactAnalyzer(unittest.TestCase):
         self.assertIn("a.py:L1:def:func_a", ego_4)
 
         summary_2 = analyze_impact_summary(self.graph, ego_2, seed_nodes)
-        self.assertIn("b.py", summary_2["affected_files"])
+        self.assertIn("b.py", summary_2.affected_files)
 
         summary_4 = analyze_impact_summary(self.graph, ego_4, seed_nodes)
-        self.assertIn("a.py", summary_4["affected_files"])
+        self.assertIn("a.py", summary_4.affected_files)
 
 
 if __name__ == "__main__":
