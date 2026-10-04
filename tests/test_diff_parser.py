@@ -1,11 +1,10 @@
 """
-Unit tests for diff parser.
+Unit tests for diff_parser.py
 """
 import unittest
 import networkx as nx
 
-from parsers.diff_parser import parse_unified_diff
-from traversal.seed_extractor import extract_seed_nodes
+from code_impact_graph_rag.diff_parser import parse_unified_diff, extract_seed_nodes
 
 
 class TestDiffParser(unittest.TestCase):
@@ -25,14 +24,7 @@ class TestDiffParser(unittest.TestCase):
 
     def test_extract_seed_nodes(self):
         graph = nx.DiGraph()
-        graph.add_node(
-            "service.py:L10:def:process",
-            file="service.py",
-            line=10,
-            name="process",
-            type="def",
-            category="function"
-        )
+        graph.add_node("service.py:L10:def:process", file="service.py", line=10, name="process", type="def", category="function")
 
         sample_diff = """--- a/service.py
 +++ b/service.py
