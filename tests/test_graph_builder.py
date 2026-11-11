@@ -6,7 +6,8 @@ import os
 import tempfile
 import shutil
 
-from code_impact_graph_rag.graph_builder import build_graph, CodeNode
+from graph.builder import build_graph
+from core.types import CodeNode, get_edges_between, get_edge_types
 
 
 class TestGraphBuilder(unittest.TestCase):
@@ -57,8 +58,8 @@ class TestGraphBuilder(unittest.TestCase):
         for ref in val_refs:
             ref_id = ref["node_id"]
             if graph.has_edge(ref_id, def_id):
-                edge_type = graph.get_edge_data(ref_id, def_id).get("edge_type")
-                self.assertEqual(edge_type, "E_invoke")
+                edge_types = get_edge_types(graph, ref_id, def_id)
+                self.assertIn("E_invoke", edge_types)
 
 
 if __name__ == "__main__":

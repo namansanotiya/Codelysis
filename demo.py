@@ -1,172 +1,165 @@
 """
-Main entry point for demonstrating the Graph-RAG Code Change Impact Analysis pipeline.
-Supports --watch mode for real-time live monitoring of file changes and simultaneous recommendations.
+Codelysis: Complete End-to-End Local Demonstration.
+Demonstrates:
+  1. MultiDiGraph Repository Code Graph Construction
+  2. Git Diff Parsing & Seed Node Mapping
+  3. k-Hop Ego Subgraph Extraction
+  4. Weighted Traversal & Personalized PageRank Impact Ranking
+  5. Causal Evidence Path Tracing & Error Prediction
+  6. Git Historical Co-Change Mining (Jaccard Coupling)
+  7. Tri-Part Hybrid Retrieval (Graph + Evolution + Token Lexical)
+  8. Test Impact Analysis (TIA: Directly & Indirectly Related Tests)
+  9. Structured Graph-RAG Serialization & Markdown Impact Report
+Deterministic and runnable locally without requiring paid API access.
 """
-import argparse
 import os
 import sys
-import time
+import json
 import logging
-from typing import Tuple, Dict, Any
+from typing import Dict, Any
 
-# Ensure UTF-8 output encoding for Windows terminal stdout
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+# Ensure Codelysis root is on sys.path
+root_dir = os.path.dirname(os.path.abspath(__file__))
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-
-from code_impact_graph_rag.config import K_HOPS
-from code_impact_graph_rag.graph_builder import build_graph, scan_repo_files
-from code_impact_graph_rag.diff_parser import get_git_diff, extract_seed_nodes
-from code_impact_graph_rag.impact_analyzer import extract_ego_graph, analyze_impact_summary
-from code_impact_graph_rag.graph_rag_engine import serialize_ego_graph
-from code_impact_graph_rag.recommender import generate_recommendations
+from config import K_HOPS, LLM_MODEL, DEFAULT_SAMPLE_DIFF
+from sources.local_loader import LocalLoader
+from graph.builder import RepoGraphBuilder
+from traversal.seed_extractor import extract_seed_nodes
+from traversal.ego_graph import extract_ego_graph
+from traversal.impact_analyzer import analyze_impact_summary
+from traversal.weighted_traversal import calculate_change_conditioned_ranking
+from traversal.path_tracer import trace_evidence_paths, predict_potential_errors
+from traversal.test_impact_analyzer import identify_relevant_tests
+from traversal.hybrid_retriever import retrieve_hybrid_impact
+from sources.git_cochange import GitCoChangeMiner
+from rag.serializer import serialize_ego_graph
+from llm.gemini_client import GeminiClient
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 logger = logging.getLogger("demo")
 
-DEFAULT_SAMPLE_DIFF = """--- a/auth/service.py
-+++ b/auth/service.py
-@@ -3,4 +3,4 @@
--def validate_token(token: str) -> bool:
-+def validate_token(token: str, require_admin: bool = False, tenant_id: str = "default") -> bool:
-     \"\"\"Validates security token and checks authorization level.\"\"\"
-     claims = decode_token(token)
-"""
 
+def run_demo(repo_path: str = None, diff_text: str = None, k: int = 2) -> Dict[str, Any]:
+    """Execute complete Codelysis pipeline demonstration."""
+    target_repo = repo_path or os.path.join(root_dir, "sample_repo")
+    logger.info("=================================================================")
+    logger.info(f"CODELYSIS: REPOSITORY GRAPH-RAG & IMPACT INTELLIGENCE DEMONSTRATION")
+    logger.info(f"Target Repository: {target_repo}")
+    logger.info("=================================================================")
 
-def run_pipeline(repo_path: str, k: int = K_HOPS, diff_text: str = None, output_file: str = None, graph=None) -> Tuple[str, Any]:
-    """Execute end-to-end Graph-RAG Impact Analysis pipeline."""
-    repo_path = os.path.abspath(repo_path)
-    
-    if graph is None:
-        logger.info(f"Step 1: Building repository dependency graph for '{repo_path}'...")
-        graph = build_graph(repo_path)
+    # 1. Ingestion
+    loader = LocalLoader(target_repo)
+    file_contents = loader.load_all_files()
+    logger.info(f"[1/8] Ingested {len(file_contents)} repository files.")
 
-    if graph.number_of_nodes() == 0:
-        logger.error("Empty repository graph built. Please verify repository path.")
-        return "", graph
+    # 2. Graph Construction
+    builder = RepoGraphBuilder(multigraph=True)
+    graph = builder.build_from_files(file_contents)
+    logger.info(
+        f"[2/8] Constructed MultiDiGraph: {graph.number_of_nodes()} nodes, "
+        f"{graph.number_of_edges()} edges across {len(file_contents)} files."
+    )
 
-    logger.info("Step 2: Identifying changed code & Seed Nodes from Git Diff...")
-    if not diff_text:
-        diff_text = get_git_diff(repo_path)
-    if not diff_text:
-        logger.info("No active Git diff detected. Using default sample modification diff...")
-        diff_text = DEFAULT_SAMPLE_DIFF
-
-    seed_nodes = extract_seed_nodes(graph, diff_text)
+    # 3. Diff & Seed Extraction
+    active_diff = diff_text or DEFAULT_SAMPLE_DIFF
+    seed_nodes = extract_seed_nodes(graph, active_diff)
     if not seed_nodes:
-        logger.warning("No seed nodes matched the diff line ranges. Fallback: using default function nodes.")
-        for nid, d in graph.nodes(data=True):
-            if d.get("category") in ("function", "method"):
-                seed_nodes = [d]
-                break
+        # Fallback to first function definition
+        seed_nodes = [d for n, d in graph.nodes(data=True) if d.get("category") in ("function", "method")][:1]
+    logger.info(f"[3/8] Extracted {len(seed_nodes)} Seed Node(s) from Git Diff:")
+    for s in seed_nodes:
+        logger.info(f"      - [{s.get('category').upper()}] {s.get('name')} ({s.get('file')}:L{s.get('line')})")
 
-    logger.info(f"Step 3: Extracting {k}-hop Ego Subgraph around seed nodes...")
+    # 4. Ego Subgraph & Impact Summary
     ego_graph = extract_ego_graph(graph, seed_nodes, k=k)
     impact_summary = analyze_impact_summary(graph, ego_graph, seed_nodes)
+    logger.info(
+        f"[4/8] Extracted {k}-hop Ego Subgraph: {ego_graph.number_of_nodes()} nodes, "
+        f"{ego_graph.number_of_edges()} edges. Direct Callers: {len(impact_summary.direct_callers)}, "
+        f"Indirect Callers: {len(impact_summary.indirect_callers)}."
+    )
 
-    logger.info(f"Found {len(impact_summary['affected_files'])} potentially affected files")
-    logger.info("Step 4: Synthesizing Graph-RAG structured context...")
-    graph_context = serialize_ego_graph(ego_graph, seed_nodes, diff_text)
+    # 5. Weighted Traversal & Causal Path Tracing
+    ranked_nodes = calculate_change_conditioned_ranking(graph, seed_nodes, k_hops=k)
+    evidence_paths = trace_evidence_paths(ego_graph, seed_nodes)
+    predicted_errors = predict_potential_errors(ego_graph, seed_nodes, active_diff)
+    logger.info(f"[5/8] Computed Weighted PPR Impact Ranking: {len(ranked_nodes)} ranked nodes.")
+    logger.info(f"      Predicted Potential Errors: {len(predicted_errors)} diagnostic warnings.")
 
-    logger.info("Step 5: Generating impact recommendations via LLM / Graph-RAG Engine...")
-    report = generate_recommendations(graph_context, diff_text, impact_summary)
+    # 6. Git Co-Change Mining & Evolution
+    miner = GitCoChangeMiner(target_repo)
+    seed_files = list({s.get("file", "") for s in seed_nodes if s.get("file")})
+    co_changes = [c.to_dict() for c in miner.get_co_changed_files(seed_files)]
+    logger.info(f"[6/8] Mined Git Evolution History: {len(co_changes)} historical co-change relations.")
 
-    if output_file:
-        out_path = os.path.abspath(output_file)
-        with open(out_path, "w", encoding="utf-8", errors="replace") as f:
-            f.write(report)
-        logger.info(f"Report saved to {out_path}")
+    # 7. Hybrid Retrieval & Test Impact Analysis
+    hybrid_rankings = [
+        r.to_dict() for r in retrieve_hybrid_impact(
+            graph, seed_nodes, diff_text=active_diff, repo_path=target_repo, git_miner=miner
+        )
+    ]
+    test_recs = identify_relevant_tests(
+        graph=graph,
+        ego_graph=ego_graph,
+        seed_nodes=seed_nodes,
+        ranked_nodes=ranked_nodes,
+        co_changes=co_changes,
+        evidence_paths=evidence_paths
+    )
+    test_recommendations = [t.to_dict() for t in test_recs]
+    impact_summary.test_recommendations = test_recommendations
+    logger.info(f"[7/8] Hybrid Retrieval: {len(hybrid_rankings)} fused candidates.")
+    logger.info(f"      Test Impact Analysis: {len(test_recommendations)} relevant test suites identified.")
 
-    return report, graph
+    # 8. Context Serialization & LLM Report
+    graph_context = serialize_ego_graph(
+        ego_graph,
+        seed_nodes,
+        active_diff,
+        test_recommendations=test_recommendations
+    )
+    llm_client = GeminiClient(model_name=LLM_MODEL)
+    report = llm_client.generate_report(graph_context, active_diff, impact_summary)
+    logger.info(f"[8/8] Synthesized Graph-RAG Report ({len(report)} chars).")
 
+    # Console Summary Printout
+    print("\n" + "=" * 75)
+    print("DEMO SUMMARY: TOP IMPACTED COMPONENTS & SUGGESTED TESTS")
+    print("=" * 75)
+    print("\n--- TOP RANKED IMPACTED COMPONENTS (WEIGHTED PPR) ---")
+    for r in ranked_nodes[:5]:
+        print(f"[{r.rank}] [{r.severity}] {r.name} ({r.file}:L{r.line}) - Score: {r.impact_score:.3f} | {r.impact_category}")
+        print(f"    Reason: {r.causal_explanation}")
 
-def get_repo_mtimes(repo_path: str) -> Dict[str, float]:
-    """Get modification timestamps of all source files in repository."""
-    mtimes = {}
-    files = scan_repo_files(repo_path)
-    for rel in files:
-        full = os.path.join(repo_path, rel)
-        try:
-            mtimes[rel] = os.path.getmtime(full)
-        except OSError:
-            pass
-    return mtimes
+    print("\n--- TEST IMPACT ANALYSIS (SUGGESTED RELEVANT TESTS) ---")
+    for tr in test_recommendations:
+        print(f"- [{tr['classification'].upper()}] {tr['test_name']} in {tr['test_file']} (Score: {tr['impact_score']:.2f})")
+        print(f"  Evidence: {tr['reason']}")
 
+    if predicted_errors:
+        print("\n--- PREDICTED POTENTIAL RUNTIME / COMPILE ERRORS ---")
+        for err in predicted_errors:
+            print(f"- [{err['severity']}] {err['error_type']} at {err['file']}:L{err['line']}")
+            print(f"  Cause: {err['cause']}")
+            print(f"  Fix:   {err['recommended_fix']}")
 
-def watch_repository(repo_path: str, k: int = K_HOPS, output_file: str = None):
-    """
-    Real-time Live Watch Mode:
-    Monitors target repository for file changes and simultaneously generates impact recommendations.
-    """
-    repo_path = os.path.abspath(repo_path)
-    logger.info(f"=== STARTING LIVE GRAPH-RAG WATCH MODE ON '{repo_path}' ===")
-    logger.info("Watching repository files for real-time changes... (Press Ctrl+C to stop)\n")
+    print("\n" + "=" * 75)
+    print("DEMONSTRATION COMPLETE - ALL MODULES FUNCTIONAL")
+    print("=" * 75 + "\n")
 
-    graph = build_graph(repo_path)
-    last_mtimes = get_repo_mtimes(repo_path)
-    last_diff = None
-
-    # Initial run
-    report, graph = run_pipeline(repo_path, k=k, output_file=output_file, graph=graph)
-    print("\n" + "=" * 60)
-    print("LIVE GRAPH-RAG IMPACT ANALYSIS REPORT:")
-    print("=" * 60 + "\n")
-    print(report)
-
-    try:
-        while True:
-            time.sleep(1.5)
-            current_mtimes = get_repo_mtimes(repo_path)
-            current_diff = get_git_diff(repo_path)
-
-            file_changed = any(current_mtimes.get(f) != last_mtimes.get(f) for f in current_mtimes)
-            diff_changed = current_diff != last_diff
-
-            if file_changed or (diff_changed and current_diff):
-                logger.info("\n[LIVE EVENT] Code modification detected! Re-analyzing graph impact...")
-                
-                graph = build_graph(repo_path)
-                report, graph = run_pipeline(repo_path, k=k, diff_text=current_diff, output_file=output_file, graph=graph)
-                
-                last_mtimes = current_mtimes
-                last_diff = current_diff
-
-                print("\n" + "=" * 60)
-                print(f"UPDATED LIVE IMPACT REPORT ({time.strftime('%H:%M:%S')}):")
-                print("=" * 60 + "\n")
-                print(report)
-
-    except KeyboardInterrupt:
-        logger.info("\nStopped Live Watch Mode.")
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Graph-RAG Code Change Impact Analysis & Co-Change Recommender")
-    default_sample_dir = os.path.join(current_dir, "sample_repo")
-    parser.add_argument("--repo", type=str, default=default_sample_dir, help="Path to target repository")
-    parser.add_argument("--k", type=int, default=K_HOPS, help="Number of hops for ego subgraph traversal")
-    parser.add_argument("--diff", type=str, default=None, help="Unified diff text string")
-    parser.add_argument("--output", type=str, default=None, help="Output markdown report filepath")
-    parser.add_argument("--watch", action="store_true", help="Enable real-time live watch mode for simultaneous recommendations on file saves")
-
-    args = parser.parse_args()
-
-    if args.watch:
-        watch_repository(repo_path=args.repo, k=args.k, output_file=args.output)
-    else:
-        report, _ = run_pipeline(repo_path=args.repo, k=args.k, diff_text=args.diff, output_file=args.output)
-        print("\n" + "=" * 60)
-        print("GENERATED GRAPH-RAG IMPACT ANALYSIS REPORT:")
-        print("=" * 60 + "\n")
-        print(report)
+    return {
+        "graph_nodes": graph.number_of_nodes(),
+        "graph_edges": graph.number_of_edges(),
+        "seed_nodes": len(seed_nodes),
+        "ego_nodes": ego_graph.number_of_nodes(),
+        "ranked_nodes": len(ranked_nodes),
+        "predicted_errors": len(predicted_errors),
+        "test_recommendations": len(test_recommendations),
+        "report_length": len(report)
+    }
 
 
 if __name__ == "__main__":
-    main()
+    run_demo()

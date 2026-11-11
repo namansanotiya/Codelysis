@@ -1,0 +1,65 @@
+{
+  "evaluation_symbol": "validate_token",
+  "table_3_ablation": {
+    "m_base": {
+      "TP": 3,
+      "FP": 0,
+      "FN": 0,
+      "Precision": 100.0,
+      "Recall": 100.0,
+      "F1": 100.0,
+      "MRR": 1.0,
+      "nDCG": 100.0
+    },
+    "m_no_weight": {
+      "TP": 3,
+      "FP": 7,
+      "FN": 0,
+      "Precision": 30.0,
+      "Recall": 100.0,
+      "F1": 46.15,
+      "MRR": 1.0,
+      "nDCG": 100.0
+    },
+    "m_weight": {
+      "TP": 3,
+      "FP": 7,
+      "FN": 0,
+      "Precision": 30.0,
+      "Recall": 100.0,
+      "F1": 46.15,
+      "MRR": 0.5,
+      "nDCG": 73.28
+    },
+    "m_hybrid": {
+      "TP": 3,
+      "FP": 7,
+      "FN": 0,
+      "Precision": 30.0,
+      "Recall": 100.0,
+      "F1": 46.15,
+      "MRR": 0.5,
+      "nDCG": 73.28
+    },
+    "m_complete": {
+      "TP": 3,
+      "FP": 7,
+      "FN": 0,
+      "Precision": 30.0,
+      "Recall": 100.0,
+      "F1": 46.15,
+      "MRR": 0.5,
+      "nDCG": 73.28
+    }
+  },
+  "table_4_test_impact": {
+    "TP": 1,
+    "FP": 3,
+    "FN": 1,
+    "Precision": 25.0,
+    "Recall": 50.0,
+    "F1": 33.33,
+    "MRR": 1.0,
+    "nDCG": 61.31
+  }
+}

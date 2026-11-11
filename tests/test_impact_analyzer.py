@@ -4,7 +4,8 @@ Unit tests for impact_analyzer.py
 import unittest
 import networkx as nx
 
-from code_impact_graph_rag.impact_analyzer import extract_ego_graph, analyze_impact_summary
+from traversal.ego_graph import extract_ego_graph
+from traversal.impact_analyzer import analyze_impact_summary
 
 
 class TestImpactAnalyzer(unittest.TestCase):

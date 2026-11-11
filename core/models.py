@@ -20,9 +20,14 @@ class ImpactSummary:
     direct_callers: List[Dict[str, Any]] = field(default_factory=list)
     indirect_callers: List[Dict[str, Any]] = field(default_factory=list)
     callees: List[Dict[str, Any]] = field(default_factory=list)
+    candidate_callers: List[Dict[str, Any]] = field(default_factory=list)
+    test_recommendations: List[Dict[str, Any]] = field(default_factory=list)
     affected_files: List[str] = field(default_factory=list)
     total_ego_nodes: int = 0
     total_ego_edges: int = 0
+
+    def __getitem__(self, item: str) -> Any:
+        return getattr(self, item)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -30,6 +35,8 @@ class ImpactSummary:
             "direct_callers": self.direct_callers,
             "indirect_callers": self.indirect_callers,
             "callees": self.callees,
+            "candidate_callers": self.candidate_callers,
+            "test_recommendations": self.test_recommendations,
             "affected_files": self.affected_files,
             "total_ego_nodes": self.total_ego_nodes,
             "total_ego_edges": self.total_ego_edges

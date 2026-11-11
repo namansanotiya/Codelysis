@@ -4,7 +4,8 @@ Unit tests for diff_parser.py
 import unittest
 import networkx as nx
 
-from code_impact_graph_rag.diff_parser import parse_unified_diff, extract_seed_nodes
+from parsers.diff_parser import parse_unified_diff
+from traversal.seed_extractor import extract_seed_nodes
 
 
 class TestDiffParser(unittest.TestCase):

@@ -2,8 +2,8 @@
 Abstract Base Parser interface for RepoGraph code line & symbol extraction.
 """
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Optional
-from core.types import CodeNode
+from typing import List, Tuple, Optional, Dict, Any
+from core.types import CodeNode, ImportBinding
 
 
 class BaseParser(ABC):
@@ -20,6 +20,14 @@ class BaseParser(ABC):
         Parse source code content and extract line-level definitions and call references.
         """
         pass
+
+    def get_imports(self) -> List[ImportBinding]:
+        """Return list of imported modules and symbol bindings from last parse."""
+        return []
+
+    def get_class_bases(self) -> Dict[str, List[str]]:
+        """Return mapping of class_name -> list of superclass names from last parse."""
+        return {}
 
     @staticmethod
     def get_snippet(lines: List[str], line_no: int) -> str:

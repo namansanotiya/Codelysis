@@ -1,9 +1,10 @@
 """
 Seed Node Extractor.
-Maps Git diff changed line numbers to corresponding RepoGraph Seed Nodes (S ⊂ V).
+Maps Git diff changed line numbers to corresponding RepoGraph Seed Nodes (S ⊂ V)
+using precise AST line spans [start_line, end_line] and lexical enclosure.
 """
 import logging
-from typing import List, Dict, Set, Any
+from typing import List, Dict, Set, Any, Union
 import networkx as nx
 
 from parsers.diff_parser import parse_unified_diff
@@ -11,9 +12,10 @@ from parsers.diff_parser import parse_unified_diff
 logger = logging.getLogger("seed_extractor")
 
 
-def extract_seed_nodes(graph: nx.DiGraph, diff_text: str) -> List[Dict[str, Any]]:
+def extract_seed_nodes(graph: Union[nx.DiGraph, nx.MultiDiGraph], diff_text: str) -> List[Dict[str, Any]]:
     """
     Identifies seed nodes S ⊂ V in RepoGraph G that correspond to lines modified in diff_text.
+    Leverages AST start_line and end_line bounds for exact enclosure matching.
     """
     file_changes = parse_unified_diff(diff_text)
     if not file_changes:
@@ -41,8 +43,14 @@ def extract_seed_nodes(graph: nx.DiGraph, diff_text: str) -> List[Dict[str, Any]
             matched = False
             for nid, data in file_nodes:
                 line_no = data.get("line", 0)
-                # Exact line match or within definition range (±2 lines)
-                if line_no in changed_lines or any(abs(line_no - cl) <= 2 for cl in changed_lines):
+                end_line = data.get("end_line", 0) or line_no
+
+                # 1. Check exact enclosure within AST node span [line_no, end_line]
+                in_span = any(line_no <= cl <= end_line for cl in changed_lines)
+                # 2. Check boundary tolerance (within ±2 lines of start/end)
+                near_boundary = any(abs(line_no - cl) <= 2 or abs(end_line - cl) <= 2 for cl in changed_lines)
+
+                if in_span or near_boundary:
                     if nid not in seed_nodes_set:
                         seed_nodes_set.add(nid)
                         seed_nodes_info.append(data)
