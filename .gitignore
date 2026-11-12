@@ -7,3 +7,7 @@ impact_report.md
 node_modules/
 dist/
 build/
+cloned_repos/
+.DS_Store
+.next/
+frontend/.next/

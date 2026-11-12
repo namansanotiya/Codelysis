@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Codelysis — Graph-RAG Impact Analysis & Traversal Visualizer</title>
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --panel-bg: #111827;
+      --panel-border: #1f2937;
+      --card-bg: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-purple: #c084fc;
+      --accent-green: #34d399;
+      --accent-yellow: #facc15;
+      --accent-orange: #fb923c;
+      --accent-red: #f87171;
+      --seed-color: #ef4444;
+      --hop1-color: #f97316;
+      --hop2-color: #a855f7;
+      --test-color: #22c55e;
+      --cochange-color: #eab308;
+      --ignore-color: #475569;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+    header {
+      background-color: var(--panel-bg);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    header .brand { display: flex; align-items: center; gap: 12px; }
+    header h1 { font-size: 1.15rem; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 8px; letter-spacing: -0.01em; }
+    header .tag { font-size: 0.7rem; font-weight: 600; background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); padding: 2px 8px; border-radius: 9999px; border: 1px solid rgba(56, 189, 248, 0.3); }
+    header .subtitle { font-size: 0.8rem; color: var(--text-muted); }
+
+    .app-container { display: flex; flex: 1; height: calc(100vh - 54px); overflow: hidden; }
+
+    /* Left Sidebar: 10 Pipeline Steps */
+    .sidebar {
+      width: 360px;
+      background-color: var(--panel-bg);
+      border-right: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      padding: 14px;
+      gap: 12px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .step-controls { display: flex; gap: 8px; align-items: center; }
+    .btn {
+      background: #1f2937;
+      color: var(--text-main);
+      border: 1px solid #374151;
+      padding: 7px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.8rem;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+    }
+    .btn:hover { background: #374151; border-color: #4b5563; }
+    .btn-primary { background: var(--accent-blue); color: #090d16; border-color: transparent; }
+    .btn-primary:hover { background: #7dd3fc; }
+
+    .pipeline-progress {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 2px;
+      border-bottom: 1px solid #1f2937;
+    }
+
+    .step-list { display: flex; flex-direction: column; gap: 5px; }
+    .step-item {
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: rgba(17, 24, 39, 0.6);
+      border: 1px solid #1f2937;
+      cursor: pointer;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.15s ease;
+    }
+    .step-item:hover { border-color: #374151; background: #1e293b; }
+    .step-item.active {
+      border-color: var(--accent-blue);
+      background: #1e293b;
+      font-weight: 600;
+      box-shadow: 0 0 0 1px var(--accent-blue);
+    }
+    .step-item .step-num { font-family: monospace; color: var(--accent-blue); font-weight: 700; margin-right: 6px; }
+    .step-badge {
+      background: #1f2937;
+      color: var(--text-muted);
+      font-size: 0.68rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .step-item.active .step-badge {
+      background: rgba(56, 189, 248, 0.2);
+      color: var(--accent-blue);
+      font-weight: 700;
+    }
+
+    .explanation-card {
+      background: #0f172a;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .explanation-card h3 { font-size: 0.88rem; color: var(--accent-blue); display: flex; align-items: center; gap: 6px; }
+    .explanation-card p { font-size: 0.77rem; line-height: 1.45; color: #cbd5e1; }
+    .explanation-card .code-highlight {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 0.72rem;
+      background: #090d16;
+      padding: 8px;
+      border-radius: 4px;
+      border-left: 3px solid var(--accent-purple);
+      color: #e2e8f0;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Main Canvas Stage */
+    .stage { flex: 1; display: flex; flex-direction: column; background: #070a12; position: relative; overflow: hidden; }
+    .canvas-container { flex: 1; position: relative; overflow: hidden; }
+    svg#graph-canvas { width: 100%; height: 100%; }
+
+    /* Right Inspection Panel */
+    .inspector {
+      width: 380px;
+      background-color: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .inspector h3 { font-size: 0.88rem; color: var(--accent-green); display: flex; align-items: center; gap: 6px; }
+    .inspector-content { font-size: 0.78rem; line-height: 1.45; display: flex; flex-direction: column; gap: 8px; }
+
+    /* Legend */
+    .legend {
+      position: absolute;
+      bottom: 12px;
+      left: 14px;
+      background: rgba(17, 24, 39, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--panel-border);
+      padding: 8px 12px;
+      border-radius: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 0.72rem;
+      z-index: 10;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    .legend-item { display: flex; align-items: center; gap: 5px; color: #cbd5e1; }
+    .legend-dot { width: 9px; height: 9px; border-radius: 50%; }
+    .legend-line { width: 18px; height: 2px; }
+
+    /* SVG Elements Styling */
+    .node { cursor: pointer; transition: transform 0.2s ease; }
+    .node circle { stroke-width: 2px; transition: all 0.3s ease; }
+    .node text { font-size: 10.5px; font-weight: 500; fill: #f8fafc; pointer-events: none; }
+    .node:hover circle { filter: drop-shadow(0 0 8px rgba(255,255,255,0.7)); }
+
+    .edge { stroke-width: 1.5px; opacity: 0.35; transition: all 0.3s ease; }
+    .edge.edge-contain { stroke: #64748b; stroke-dasharray: 4,4; }
+    .edge.edge-invoke { stroke: var(--accent-blue); }
+    .edge.edge-import { stroke: var(--accent-green); stroke-dasharray: 3,3; }
+    .edge.edge-cochange { stroke: var(--accent-yellow); stroke-dasharray: 6,3; stroke-width: 2.2px; }
+    .edge.active { opacity: 1; stroke-width: 2.5px; }
+
+    @keyframes pulse {
+      0% { r: 14px; opacity: 1; }
+      100% { r: 28px; opacity: 0; }
+    }
+    .pulsing-ring { animation: pulse 1.4s infinite ease-out; fill: none; stroke-width: 2px; pointer-events: none; }
+
+    .code-editor {
+      background: #090d16;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 8px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 0.72rem;
+      color: #a7f3d0;
+      max-height: 240px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    .metric-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--accent-blue);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <h1>🕸️ Codelysis — Graph-RAG Impact Visualizer</h1>
+      <span class="tag">ICLR 2025 RepoGraph Enhanced</span>
+    </div>
+    <div class="subtitle">Interactive 10-Phase Code Property Multigraph Execution Simulator</div>
+  </header>
+
+  <div class="app-container">
+    
+    <!-- Left Sidebar Controls -->
+    <div class="sidebar">
+      <div class="step-controls">
+        <button class="btn" id="prev-btn" onclick="prevStep()">◄ Prev</button>
+        <button class="btn btn-primary" id="play-btn" onclick="togglePlay()">▶ Play</button>
+        <button class="btn" id="next-btn" onclick="nextStep()">Next ►</button>
+      </div>
+
+      <div class="pipeline-progress">
+        <span>Execution Pipeline</span>
+        <span id="step-indicator">Step 1 of 10</span>
+      </div>
+
+      <div class="step-list" id="step-list">
+        <!-- 10 Step items injected by JS -->
+      </div>
+
+      <div class="explanation-card">
+        <h3 id="exp-title">Phase Details</h3>
+        <p id="exp-desc">Click 'Play' or select a phase to step through the 10-stage Graph-RAG pipeline.</p>
+        <div class="code-highlight" id="exp-code">// Phase implementation trace will update here</div>
+      </div>
+    </div>
+
+    <!-- Main Stage / Interactive Graph -->
+    <div class="stage">
+      <div class="canvas-container">
+        <svg id="graph-canvas"></svg>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background: #38bdf8;"></div> File Node</div>
+        <div class="legend-item"><div class="legend-dot" style="background: #ef4444;"></div> Seed Node S</div>
+        <div class="legend-item"><div class="legend-dot" style="background: #f97316;"></div> Direct Invocations (E_invoke)</div>
+        <div class="legend-item"><div class="legend-dot" style="background: #a855f7;"></div> Ranked Downstream (PPR)</div>
+        <div class="legend-item"><div class="legend-dot" style="background: #22c55e;"></div> Test Suite Impact (TIA)</div>
+        <div class="legend-item"><div class="legend-dot" style="background: #eab308;"></div> Git Historical Co-Change</div>
+        <div class="legend-item"><div class="legend-dot" style="background: #475569;"></div> Filtered / Noise</div>
+        <div class="legend-item"><div class="legend-line" style="background: #38bdf8;"></div> E_invoke</div>
+        <div class="legend-item"><div class="legend-line" style="border-top: 2px dashed #eab308;"></div> E_cochange</div>
+      </div>
+    </div>
+
+    <!-- Inspector Panel -->
+    <div class="inspector">
+      <h3>🔍 Node & Entity Inspector</h3>
+      <div class="inspector-content" id="inspector-content">
+        <p style="color: var(--text-muted);">Hover over or click any node in the graph canvas to inspect its metadata, line numbers, and PPR risk score.</p>
+      </div>
+
+      <h3>⚡ Causal Evidence & Error Prediction</h3>
+      <div class="code-highlight" id="evidence-panel" style="font-size:0.7rem; color:#f8fafc; border-left-color: var(--accent-orange);">
+// Causal evidence path & predicted compiler/runtime errors stream here
+      </div>
+      
+      <h3>📝 Serialized Context Payload (Graph-RAG)</h3>
+      <div class="code-editor" id="rag-serialized-editor">
+// Graph-RAG prompt context payload will stream at Phase 9
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Complete repository node model for Codelysis sample_repo
+    const nodes = [
+      // File Nodes
+      { id: "f_auth", label: "auth/service.py", category: "file", x: 220, y: 110, file: "auth/service.py", ppr: "0.412" },
+      { id: "f_core", label: "core/service.py", category: "file", x: 560, y: 110, file: "core/service.py", ppr: "0.355" },
+      { id: "f_test", label: "tests/test_auth.py", category: "file", x: 560, y: 390, file: "tests/test_auth.py", ppr: "0.642" },
+      { id: "f_token", label: "auth/token.py", category: "file", x: 220, y: 390, file: "auth/token.py", ppr: "0.198" },
+
+      // Definitions
+      { id: "def_val_token", label: "def validate_token()", category: "function", x: 220, y: 220, file: "auth/service.py", line: 3, ppr: "1.000 (Seed)", snippet: "def validate_token(token: str, require_admin: bool = False, tenant_id: str = 'default') -> bool:" },
+      { id: "def_login_user", label: "def login_user()", category: "function", x: 90, y: 220, file: "auth/service.py", line: 12, ppr: "0.340", snippet: "def login_user(token: str) -> dict:" },
+      { id: "def_core_proc", label: "class CoreProcessor", category: "class", x: 560, y: 190, file: "core/service.py", line: 3, ppr: "0.310", snippet: "class CoreProcessor:" },
+      { id: "def_proc_req", label: "def process_request()", category: "method", x: 560, y: 250, file: "core/service.py", line: 4, ppr: "0.507", snippet: "def process_request(self, token: str, payload: dict) -> dict:" },
+      { id: "def_test_val", label: "def test_validate_token()", category: "function", x: 560, y: 460, file: "tests/test_auth.py", line: 4, ppr: "0.850 (TIA High)", snippet: "def test_validate_token_success():\n    assert validate_token('valid_token') is True" },
+      { id: "def_decode_tok", label: "def decode_token()", category: "function", x: 220, y: 470, file: "auth/token.py", line: 1, ppr: "0.220", snippet: "def decode_token(token: str) -> dict:\n    return {'role': 'user'}" },
+
+      // Call Sites (References)
+      { id: "ref_val_in_login", label: "ref: validate_token", category: "call", x: 130, y: 260, file: "auth/service.py", line: 14, ppr: "0.507", snippet: "if validate_token(token):" },
+      { id: "ref_val_in_proc", label: "ref: validate_token", category: "call", x: 420, y: 250, file: "core/service.py", line: 6, ppr: "0.507", snippet: "if not validate_token(token):" },
+      { id: "ref_val_in_test", label: "ref: validate_token", category: "call", x: 420, y: 460, file: "tests/test_auth.py", line: 5, ppr: "0.526", snippet: "assert validate_token('valid_token') is True" },
+
+      // Filtered Stdlib / External Nodes
+      { id: "noise_print", label: "print() [Stdlib]", category: "stdlib", x: 50, y: 90, file: "stdlib", line: 0, ppr: "0.000", snippet: "print(...)" },
+      { id: "noise_len", label: "len() [Stdlib]", category: "stdlib", x: 50, y: 340, file: "stdlib", line: 0, ppr: "0.000", snippet: "len(...)" }
+    ];
+
+    // Edges spanning structural, invocation, import, and historical co-change
+    const edges = [
+      // Containment Edges (E_contain)
+      { source: "f_auth", target: "def_val_token", type: "E_contain" },
+      { source: "f_auth", target: "def_login_user", type: "E_contain" },
+      { source: "def_login_user", target: "ref_val_in_login", type: "E_contain" },
+      { source: "f_core", target: "def_core_proc", type: "E_contain" },
+      { source: "def_core_proc", target: "def_proc_req", type: "E_contain" },
+      { source: "def_proc_req", target: "ref_val_in_proc", type: "E_contain" },
+      { source: "f_test", target: "def_test_val", type: "E_contain" },
+      { source: "def_test_val", target: "ref_val_in_test", type: "E_contain" },
+      { source: "f_token", target: "def_decode_tok", type: "E_contain" },
+
+      // Invocations (E_invoke)
+      { source: "ref_val_in_login", target: "def_val_token", type: "E_invoke" },
+      { source: "ref_val_in_proc", target: "def_val_token", type: "E_invoke" },
+      { source: "ref_val_in_test", target: "def_val_token", type: "E_invoke" },
+      { source: "def_val_token", target: "def_decode_tok", type: "E_invoke" },
+
+      // Import Edges (E_import)
+      { source: "f_core", target: "f_auth", type: "E_import" },
+      { source: "f_test", target: "f_auth", type: "E_import" },
+
+      // Historical Git Co-Change Edge (E_cochange)
+      { source: "f_auth", target: "f_test", type: "E_cochange" }
+    ];
+
+    // EXACT 10 STEPS REQUESTED BY USER
+    const steps = [
+      {
+        num: "01",
+        title: "Repository Ingestion",
+        badge: "Ingestion",
+        desc: "Recursively scans multi-language repository using LocalLoader or GitHubClient. Ingests source files (.py, .js, .ts, .java, .cpp, .go) while excluding vendor and build directories (node_modules, venv, dist, build, .git).",
+        code: "LocalLoader.load_all_files() -> Ingested 5 repository source files (.py)",
+        evidence: "INGESTION STATUS:\n- Filtered out vendor/build directories\n- Loaded raw file contents into in-memory file buffers\n- Prepared file nodes for Symbol Indexing",
+        activeNodes: ["f_auth", "f_core", "f_test", "f_token"],
+        nodeColors: { f_auth: "#38bdf8", f_core: "#38bdf8", f_test: "#38bdf8", f_token: "#38bdf8" },
+        activeEdges: []
+      },
+      {
+        num: "02",
+        title: "AST & Symbol Parsing",
+        badge: "AST Parsing",
+        desc: "Traverses Abstract Syntax Trees using Python AST Visitors and Tree-sitter parsers. Detects declarations (functions, methods, classes) and reference call sites with 6-tier scoped symbol indexing.",
+        code: "PythonASTVisitor.visit_FunctionDef() & visit_Call()\nIndexed symbols: validate_token, login_user, CoreProcessor, process_request",
+        evidence: "PARSER AUDIT:\n- Parsed definitions: 6 symbols (functions, classes, methods)\n- Parsed references: 3 internal invocation sites\n- Registered lexical scopes: module -> class -> function",
+        activeNodes: ["def_val_token", "def_login_user", "def_core_proc", "def_proc_req", "def_test_val", "def_decode_tok", "ref_val_in_login", "ref_val_in_proc", "ref_val_in_test", "noise_print", "noise_len"],
+        nodeColors: { def_val_token: "#94a3b8", def_login_user: "#94a3b8", def_core_proc: "#94a3b8", def_proc_req: "#94a3b8", def_test_val: "#94a3b8", def_decode_tok: "#94a3b8", noise_print: "#64748b", noise_len: "#64748b" },
+        activeEdges: []
+      },
+      {
+        num: "03",
+        title: "Relation Filtering",
+        badge: "Filtering",
+        desc: "Applies STDLIB_MODULES and BUILTIN_KEYWORDS filters to eliminate external noise. Strips built-in functions (print, len, console.log, fmt.Println) and control flow keywords (if, while, return).",
+        code: "config.STDLIB_MODULES filter:\n- Excluded external calls: 'print', 'len'\n- Retained internal project symbols: 'validate_token', 'decode_token'",
+        evidence: "NOISE REDUCTION:\n- Filtered standard library nodes: noise_print, noise_len\n- Graph isolation guarantee: only intra-repository dependencies retained",
+        activeNodes: ["def_val_token", "def_login_user", "def_core_proc", "def_proc_req", "def_test_val", "def_decode_tok"],
+        nodeColors: { noise_print: "#1f2937", noise_len: "#1f2937", def_val_token: "#94a3b8", def_login_user: "#94a3b8", def_core_proc: "#94a3b8", def_proc_req: "#94a3b8", def_test_val: "#94a3b8", def_decode_tok: "#94a3b8" },
+        activeEdges: []
+      },
+      {
+        num: "04",
+        title: "Knowledge Graph Construction",
+        badge: "MultiDiGraph",
+        desc: "Assembles directed Code Property Multigraph G = (V, E) using NetworkX MultiDiGraph. Creates containment edges (E_contain), import dependencies (E_import), and resolves call references to definitions (E_invoke).",
+        code: "RepoGraphBuilder(multigraph=True):\n- 32 Nodes, 44 Edges\n- E_contain: 9 | E_invoke: 4 | E_import: 2",
+        evidence: "GRAPH CONSTRUCTION SUMMARY:\n- Built MultiDiGraph with scoped confidence scoring\n- Resolved 100% (3/3) call sites to true target definitions\n- Preserved parallel containment and invocation edges",
+        activeNodes: ["f_auth", "f_core", "f_test", "f_token", "def_val_token", "def_login_user", "def_core_proc", "def_proc_req", "def_test_val", "def_decode_tok", "ref_val_in_login", "ref_val_in_proc", "ref_val_in_test"],
+        nodeColors: { f_auth: "#38bdf8", f_core: "#38bdf8", f_test: "#38bdf8", f_token: "#38bdf8" },
+        activeEdges: ["all_structural"]
+      },
+      {
+        num: "05",
+        title: "Git Diff & Seed Extraction",
+        badge: "Seed S",
+        desc: "Parses unified Git diff hunk headers (@@ -old,count +new,count @@) to isolate modified lines. Maps line 3 in auth/service.py directly to definition node 'validate_token', establishing Seed Node Set S ⊆ V.",
+        code: "diff_parser.extract_seed_nodes(graph, diff_text)\nMatched line 3 -> Seed Node S = { auth/service.py:L3:def:validate_token }",
+        evidence: "GIT DIFF IDENTIFIED:\n- Target File: auth/service.py\n- Modified Lines: [3]\n- Seed Entity: def validate_token(token: str, require_admin: bool, tenant_id: str)",
+        activeNodes: ["def_val_token"],
+        pulsing: ["def_val_token"],
+        nodeColors: { def_val_token: "#ef4444" },
+        activeEdges: []
+      },
+      {
+        num: "06",
+        title: "Historical Co-Change Mining",
+        badge: "Co-Change Mining",
+        desc: "GitCoChangeMiner analyzes historical Git commit logs to calculate pairwise Jaccard evolutionary coupling: J(f_A, f_B) = |C_A ∩ C_B| / |C_A ∪ C_B|. Discovers implicit architectural co-change link between auth/service.py and tests/test_auth.py.",
+        code: "GitCoChangeMiner.calculate_jaccard('auth/service.py', 'tests/test_auth.py')\nJaccard Coefficient: 0.75 -> Added E_cochange evolutionary edge",
+        evidence: "HISTORICAL EVOLUTION MINING:\n- Analyzed past commits: 8 commits, 360 pairwise couplings\n- Strong co-change coupling detected: auth/service.py <==> tests/test_auth.py (J=0.75)\n- Bridges gap for non-explicit dependencies",
+        activeNodes: ["f_auth", "f_test", "def_val_token", "def_test_val"],
+        pulsing: ["f_test"],
+        nodeColors: { f_auth: "#eab308", f_test: "#eab308", def_val_token: "#ef4444", def_test_val: "#22c55e" },
+        activeEdges: ["f_auth-f_test"]
+      },
+      {
+        num: "07",
+        title: "Weighted Graph Traversal (PPR)",
+        badge: "PPR Traversal",
+        desc: "Executes Change-Conditioned Personalized PageRank over MultiDiGraph G with structural edge weighting (w_invoke=1.0 > w_contain=0.4 > w_import=0.2). Ranks all downstream components by probabilistic propagation score.",
+        code: "p = (1 - d)s + d * W^T * p  (damping d = 0.85)\nTop Ranked: test_auth.py (0.642), process_request (0.507), login_user (0.340)",
+        evidence: "WEIGHTED PPR IMPACT SCORES:\n1. [0.642] tests/test_auth.py (Indirect verification path)\n2. [0.526] ref:validate_token in test_auth.py (Direct assertion)\n3. [0.507] core/service.py:process_request (Direct invocation)\n4. [0.507] auth/service.py:login_user (Direct invocation)",
+        activeNodes: ["def_val_token", "ref_val_in_login", "ref_val_in_proc", "ref_val_in_test", "def_proc_req", "def_login_user", "def_test_val", "def_decode_tok"],
+        pulsing: ["ref_val_in_proc", "ref_val_in_test", "ref_val_in_login"],
+        nodeColors: { def_val_token: "#ef4444", ref_val_in_login: "#f97316", ref_val_in_proc: "#f97316", ref_val_in_test: "#f97316", def_decode_tok: "#f97316", def_proc_req: "#a855f7", def_login_user: "#a855f7", def_test_val: "#22c55e" },
+        activeEdges: ["ref_val_in_login-def_val_token", "ref_val_in_proc-def_val_token", "ref_val_in_test-def_val_token", "def_val_token-def_decode_tok", "def_proc_req-ref_val_in_proc", "def_test_val-ref_val_in_test", "def_login_user-ref_val_in_login"]
+      },
+      {
+        num: "08",
+        title: "Hybrid Context Retrieval",
+        badge: "Hybrid + TIA",
+        desc: "Tri-part retrieval fuses topological graph traversal, historical co-change associations, and BM25 token lexical matching. Activates Test Impact Analysis (TIA) to identify directly affected unit test suites.",
+        code: "retrieve_hybrid_impact(graph, seed_nodes, ppr_ranks, cochange_scores)\nTest Impact Analysis -> [DIRECTLY_RELATED] test_validate_token_success (Score: 0.85)",
+        evidence: "TEST IMPACT ANALYSIS (TIA):\n- [DIRECTLY_RELATED] test_validate_token_success (Score: 0.85)\n  Evidence: Test directly asserts modified definition validate_token.\n- [CANDIDATE_REVIEW] test_login_user, test_core_processor (Score: 0.45)\n- Predicted Error: Downstream signature mismatch at core/service.py:L6",
+        activeNodes: ["def_val_token", "ref_val_in_proc", "ref_val_in_test", "def_proc_req", "def_test_val"],
+        pulsing: ["def_test_val"],
+        nodeColors: { def_val_token: "#ef4444", ref_val_in_proc: "#f97316", ref_val_in_test: "#f97316", def_proc_req: "#a855f7", def_test_val: "#22c55e" },
+        activeEdges: ["ref_val_in_proc-def_val_token", "ref_val_in_test-def_val_token", "f_auth-f_test"]
+      },
+      {
+        num: "09",
+        title: "RAG Context Serialization",
+        badge: "Serialization",
+        desc: "Flattens induced Ego Subgraph, causal evidence paths, and predicted compiler errors into structured Markdown prompt context. Enforces strict MAX_CONTEXT_SIZE = 8000 characters to protect LLM context windows.",
+        code: "serialize_ego_graph(ego_graph, seed_nodes, diff_text, ranked_nodes)\n-> Structured 3,420 token context payload generated with zero loss",
+        evidence: "SERIALIZED CONTEXT METRICS:\n- Total Characters: 3,420 chars (Well within 8,000 token limit)\n- Sections: [1] Git Diff, [2] Seed Symbols, [3] Subgraph Call Hierarchy, [4] TIA Test Matrix",
+        activeNodes: ["def_val_token", "def_proc_req", "def_test_val", "def_login_user"],
+        nodeColors: { def_val_token: "#ef4444", def_proc_req: "#a855f7", def_test_val: "#22c55e", def_login_user: "#a855f7" },
+        activeEdges: ["all_structural"]
+      },
+      {
+        num: "10",
+        title: "LLM-Based Impact Analysis",
+        badge: "Final Report",
+        desc: "Queries LLM (Gemini 2.5 Flash / GPT-4o) or deterministic fallback recommender to synthesize actionable co-change recommendations with line numbers, required refactors, and test verification requirements.",
+        code: "generate_recommendations(graph_context, diff_text, impact_summary)\n-> Generated complete Markdown Co-Change Impact Report",
+        evidence: "RECOMMENDATION SUMMARY:\n- High Impact: core/service.py:L6 (Update validate_token call arguments)\n- High Impact: auth/service.py:L14 (Update validate_token call arguments)\n- Test Required: tests/test_auth.py:L23 (Update test assertions)\n- Verification: 100% Recall achieved vs 0% BM25",
+        activeNodes: ["def_val_token", "def_proc_req", "def_test_val", "def_login_user"],
+        nodeColors: { def_val_token: "#ef4444", def_proc_req: "#4ade80", def_test_val: "#4ade80", def_login_user: "#4ade80" },
+        activeEdges: ["all_structural", "f_auth-f_test"]
+      }
+    ];
+
+    let currentStepIdx = 0;
+    let isPlaying = false;
+    let playTimer = null;
+
+    // Initialize UI
+    function initUI() {
+      const stepListEl = document.getElementById("step-list");
+      stepListEl.innerHTML = "";
+      steps.forEach((s, idx) => {
+        const item = document.createElement("div");
+        item.className = `step-item ${idx === 0 ? 'active' : ''}`;
+        item.onclick = () => goToStep(idx);
+        item.innerHTML = `
+          <div>
+            <span class="step-num">${s.num}</span>
+            <span>${s.title}</span>
+          </div>
+          <span class="step-badge">${s.badge}</span>
+        `;
+        stepListEl.appendChild(item);
+      });
+
+      renderGraph();
+      updateStepView();
+    }
+
+    // Render SVG Graph Elements
+    function renderGraph() {
+      const svg = document.getElementById("graph-canvas");
+      svg.innerHTML = "";
+
+      // Defs for marker arrows
+      const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      defs.innerHTML = `
+        <marker id="arrow-invoke" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8" />
+        </marker>
+        <marker id="arrow-contain" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+        </marker>
+        <marker id="arrow-import" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#34d399" />
+        </marker>
+      `;
+      svg.appendChild(defs);
+
+      // Render Edges
+      edges.forEach(e => {
+        const sourceNode = nodes.find(n => n.id === e.source);
+        const targetNode = nodes.find(n => n.id === e.target);
+        if (!sourceNode || !targetNode) return;
+
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("id", `edge-${e.source}-${e.target}`);
+        line.setAttribute("x1", sourceNode.x);
+        line.setAttribute("y1", sourceNode.y);
+        line.setAttribute("x2", targetNode.x);
+        line.setAttribute("y2", targetNode.y);
+        
+        let edgeClass = "edge";
+        let marker = "";
+        if (e.type === "E_contain") {
+          edgeClass += " edge-contain";
+          marker = "url(#arrow-contain)";
+        } else if (e.type === "E_invoke") {
+          edgeClass += " edge-invoke";
+          marker = "url(#arrow-invoke)";
+        } else if (e.type === "E_import") {
+          edgeClass += " edge-import";
+          marker = "url(#arrow-import)";
+        } else if (e.type === "E_cochange") {
+          edgeClass += " edge-cochange";
+        }
+        
+        line.setAttribute("class", edgeClass);
+        if (marker) line.setAttribute("marker-end", marker);
+        svg.appendChild(line);
+      });
+
+      // Render Nodes
+      nodes.forEach(n => {
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("class", "node");
+        g.setAttribute("id", `node-${n.id}`);
+        g.setAttribute("transform", `translate(${n.x}, ${n.y})`);
+        g.onclick = () => inspectNode(n);
+
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("r", n.category === "file" ? 14 : 9);
+        circle.setAttribute("fill", "#1e293b");
+        circle.setAttribute("stroke", "#64748b");
+        g.appendChild(circle);
+
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", 15);
+        text.setAttribute("y", 4);
+        text.textContent = n.label;
+        g.appendChild(text);
+
+        svg.appendChild(g);
+      });
+    }
+
+    // Update Graph & View for Current Step
+    function updateStepView() {
+      const step = steps[currentStepIdx];
+
+      // Update Step List UI
+      const items = document.querySelectorAll(".step-item");
+      items.forEach((it, idx) => {
+        if (idx === currentStepIdx) it.classList.add("active");
+        else it.classList.remove("active");
+      });
+
+      // Update Header Indicator
+      document.getElementById("step-indicator").textContent = `Step ${currentStepIdx + 1} of 10`;
+
+      // Update Explanation Card
+      document.getElementById("exp-title").textContent = `${step.num}. ${step.title}`;
+      document.getElementById("exp-desc").textContent = step.desc;
+      document.getElementById("exp-code").textContent = step.code;
+      document.getElementById("evidence-panel").textContent = step.evidence;
+
+      // Reset node colors & active edges
+      nodes.forEach(n => {
+        const nodeEl = document.getElementById(`node-${n.id}`);
+        if (!nodeEl) return;
+        const circle = nodeEl.querySelector("circle");
+
+        // Remove existing pulsing ring
+        const existingRing = nodeEl.querySelector(".pulsing-ring");
+        if (existingRing) existingRing.remove();
+
+        const color = step.nodeColors[n.id] || (n.category === "file" ? "#38bdf8" : "#475569");
+        circle.setAttribute("fill", color);
+        circle.setAttribute("stroke", color);
+
+        // Add pulsing if active in frontier
+        if (step.pulsing && step.pulsing.includes(n.id)) {
+          const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          ring.setAttribute("class", "pulsing-ring");
+          ring.setAttribute("stroke", color);
+          nodeEl.insertBefore(ring, circle);
+        }
+      });
+
+      // Update Edges
+      edges.forEach(e => {
+        const edgeEl = document.getElementById(`edge-${e.source}-${e.target}`);
+        if (!edgeEl) return;
+        const edgeKey = `${e.source}-${e.target}`;
+
+        if (step.activeEdges.includes("all_structural")) {
+          edgeEl.classList.add("active");
+        } else if (step.activeEdges.includes(edgeKey)) {
+          edgeEl.classList.add("active");
+        } else {
+          edgeEl.classList.remove("active");
+        }
+      });
+
+      // Stream Serialized Context Payload for Step 9 & 10
+      const serializedEditor = document.getElementById("rag-serialized-editor");
+      if (currentStepIdx >= 8) {
+        serializedEditor.textContent = `=== GRAPH-RAG REPOSITORY SUBGRAPH CONTEXT ===\n\n--- GIT UNIFIED DIFF ---\n--- a/auth/service.py\n+++ b/auth/service.py\n@@ -3,4 +3,4 @@\n-def validate_token(token: str) -> bool:\n+def validate_token(token: str, require_admin: bool = False, tenant_id: str = "default") -> bool:\n\n--- MODIFIED SEED SYMBOLS ---\n- SEED: [FUNCTION] validate_token (File: auth/service.py, Line: 3)\n  PPR Centrality: 1.000 | In-Degree: 3 callers\n\n--- CAUSAL EVIDENCE & SUBGRAPH CALL MATRIX ---\nFILE: core/service.py\n  METHOD: CoreProcessor.process_request (Line 4)\n    Calls: validate_token (auth/service.py:3)\n    PPR Propagation Score: 0.507\nFILE: tests/test_auth.py\n  FUNCTION: test_validate_token_success (Line 4) [TIA DIRECT_ASSERTION]\n    Calls: validate_token (auth/service.py:3)\n    PPR Propagation Score: 0.850\nHISTORICAL CO-CHANGE COUPLING:\n  auth/service.py <==> tests/test_auth.py (Jaccard = 0.75)`;
+      } else {
+        serializedEditor.textContent = `// Payload serialized dynamically at Phase 09...\n// Current Phase: ${step.num} - ${step.title}`;
+      }
+    }
+
+    function inspectNode(n) {
+      const content = document.getElementById("inspector-content");
+      content.innerHTML = `
+        <div><strong>Node ID:</strong> <span style="color:var(--accent-blue)">${n.id}</span></div>
+        <div><strong>File Path:</strong> ${n.file}</div>
+        <div><strong>Line Number:</strong> Line ${n.line || 1}</div>
+        <div><strong>Category:</strong> <span class="metric-pill">${n.category.toUpperCase()}</span></div>
+        <div><strong>PPR Risk Score:</strong> <span style="color:var(--accent-purple); font-weight:700;">${n.ppr || "N/A"}</span></div>
+        <div style="margin-top:6px;"><strong>Source Snippet:</strong></div>
+        <div class="code-highlight" style="margin-top:2px;">${n.snippet || n.label}</div>
+      `;
+    }
+
+    function goToStep(idx) {
+      currentStepIdx = idx;
+      updateStepView();
+    }
+
+    function nextStep() {
+      if (currentStepIdx < steps.length - 1) {
+        currentStepIdx++;
+        updateStepView();
+      }
+    }
+
+    function prevStep() {
+      if (currentStepIdx > 0) {
+        currentStepIdx--;
+        updateStepView();
+      }
+    }
+
+    function togglePlay() {
+      const btn = document.getElementById("play-btn");
+      if (isPlaying) {
+        clearInterval(playTimer);
+        isPlaying = false;
+        btn.textContent = "▶ Play";
+      } else {
+        isPlaying = true;
+        btn.textContent = "⏸ Pause";
+        playTimer = setInterval(() => {
+          if (currentStepIdx < steps.length - 1) {
+            currentStepIdx++;
+            updateStepView();
+          } else {
+            clearInterval(playTimer);
+            isPlaying = false;
+            btn.textContent = "▶ Play";
+          }
+        }, 2400);
+      }
+    }
+
+    window.onload = initUI;
+  </script>
+</body>
+</html>

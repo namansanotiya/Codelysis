@@ -68,6 +68,20 @@ class CodeNode:
     snippet: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self):
+        # Guarantee line and end_line are integers even if legacy parsers passed snippet positionally
+        if isinstance(self.end_line, str):
+            if not self.snippet:
+                self.snippet = self.end_line
+            self.end_line = self.line
+        if isinstance(self.line, str):
+            try:
+                self.line = int(self.line)
+            except (ValueError, TypeError):
+                self.line = 0
+        if not isinstance(self.end_line, int):
+            self.end_line = self.line
+
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 

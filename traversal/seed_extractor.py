@@ -42,13 +42,21 @@ def extract_seed_nodes(graph: Union[nx.DiGraph, nx.MultiDiGraph], diff_text: str
 
             matched = False
             for nid, data in file_nodes:
-                line_no = data.get("line", 0)
-                end_line = data.get("end_line", 0) or line_no
+                try:
+                    line_no = int(data.get("line", 0))
+                except (ValueError, TypeError):
+                    line_no = 0
+
+                raw_end = data.get("end_line", 0)
+                try:
+                    end_line = int(raw_end) if (raw_end is not None and not isinstance(raw_end, str)) else line_no
+                except (ValueError, TypeError):
+                    end_line = line_no
 
                 # 1. Check exact enclosure within AST node span [line_no, end_line]
-                in_span = any(line_no <= cl <= end_line for cl in changed_lines)
+                in_span = any(line_no <= int(cl) <= end_line for cl in changed_lines)
                 # 2. Check boundary tolerance (within ±2 lines of start/end)
-                near_boundary = any(abs(line_no - cl) <= 2 or abs(end_line - cl) <= 2 for cl in changed_lines)
+                near_boundary = any(abs(line_no - int(cl)) <= 2 or abs(end_line - int(cl)) <= 2 for cl in changed_lines)
 
                 if in_span or near_boundary:
                     if nid not in seed_nodes_set:

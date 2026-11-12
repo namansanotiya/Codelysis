@@ -37,7 +37,7 @@ class GenericParser(BaseParser):
                 cname = class_match.group(1)
                 if not is_builtin_or_stdlib(cname):
                     node_id = f"{file_path}:L{idx}:def:{cname}"
-                    cnode = CodeNode(node_id, file_path, idx, cname, "def", "class", clean)
+                    cnode = CodeNode(node_id, file_path, idx, cname, "def", "class", snippet=clean)
                     definitions.append(cnode)
                     current_container = cnode
                     continue
@@ -49,7 +49,7 @@ class GenericParser(BaseParser):
                 if not is_builtin_or_stdlib(fname):
                     category = "method" if current_container and current_container.category == "class" else "function"
                     node_id = f"{file_path}:L{idx}:def:{fname}"
-                    fnode = CodeNode(node_id, file_path, idx, fname, "def", category, clean)
+                    fnode = CodeNode(node_id, file_path, idx, fname, "def", category, snippet=clean)
                     definitions.append(fnode)
                     current_container = fnode
 
@@ -60,7 +60,7 @@ class GenericParser(BaseParser):
                     enclosing = current_container
                     if not enclosing or enclosing.name != called:
                         ref_id = f"{file_path}:L{idx}:ref:{called}"
-                        ref_node = CodeNode(ref_id, file_path, idx, called, "ref", "call", clean)
+                        ref_node = CodeNode(ref_id, file_path, idx, called, "ref", "call", snippet=clean)
                         references.append((ref_node, enclosing.node_id if enclosing else None))
 
         return definitions, references

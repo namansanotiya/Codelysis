@@ -92,7 +92,15 @@ def measure_table_1(sample_repo_path: str = None, github_slug: str = None):
     print("TABLE 1: GRAPH CONSTRUCTION AND TRAVERSAL STATISTICS")
     print("=" * 78)
 
-    repo_dir = sample_repo_path or os.path.join(root_dir, "sample_repo")
+    repo_dir = sample_repo_path
+    if not repo_dir and github_slug:
+        print(f"[*] Ingesting and measuring GitHub repo: {github_slug}...")
+        client = GitHubClient(github_slug)
+        repo_dir = client.clone_or_update()
+
+    if not repo_dir:
+        repo_dir = os.path.join(root_dir, "sample_repo")
+
     if os.path.exists(repo_dir):
         loader = LocalLoader(repo_dir)
         files = loader.load_all_files()
@@ -109,15 +117,53 @@ def measure_table_1(sample_repo_path: str = None, github_slug: str = None):
             if d.get("edge_type") == "E_invoke"
         ])
 
-        print(f"{'Repository':<30} | {'Nodes (|V|)':<12} | {'Edges (|E|)':<12} | {'Invocations':<12} | {'Build Time'}")
+        repo_label = (github_slug or os.path.basename(repo_dir)) + " (measured live)"
+        print(f"{'Repository':<32} | {'Nodes (|V|)':<12} | {'Edges (|E|)':<12} | {'Invocations':<12} | {'Build Time'}")
         print("-" * 78)
-        print(f"{'sample_repo (measured live)':<30} | {v_count:<12} | {e_count:<12} | {invocations:<12} | {build_time:.4f} s")
+        print(f"{repo_label:<32} | {v_count:<12} | {e_count:<12} | {invocations:<12} | {build_time:.4f} s")
         print("-" * 78)
         print("Paper Reference Baselines (Full Clones on Apple M-series platform):")
         print(f"  {'sample_repo (paper)':<28} | {'26':<12} | {'29':<12} | {'8':<12} | 0.04 s")
         print(f"  {'bottlepy/bottle (paper)':<28} | {'642':<12} | {'1489':<12} | {'384':<12} | 1.28 s")
         print(f"  {'pallets/flask (paper)':<28} | {'814':<12} | {'2106':<12} | {'592':<12} | 1.84 s")
         print("-" * 78)
+    return repo_dir
+
+
+def find_seed_symbol(graph, requested_symbol: str = "validate_token") -> Tuple[str, List[Any], Set[str]]:
+    """
+    Finds seed nodes for the requested symbol. If not present in the graph,
+    intelligently falls back to the most connected/central function definition.
+    """
+    ground_truth_callers = set()
+    seed_nodes = []
+
+    for nid, data in graph.nodes(data=True):
+        if data.get("name") == requested_symbol and data.get("type") == "def":
+            seed_nodes.append(data)
+            for pred in graph.predecessors(nid):
+                if has_edge_type(graph, pred, nid, "E_invoke"):
+                    ground_truth_callers.add(pred)
+
+    if seed_nodes:
+        return requested_symbol, seed_nodes, ground_truth_callers
+
+    # Fallback: Find candidate function definitions with the most callers/invocations
+    candidate_defs = []
+    for nid, data in graph.nodes(data=True):
+        if data.get("type") == "def":
+            # count incoming invoke edges
+            invoke_preds = [p for p in graph.predecessors(nid) if has_edge_type(graph, p, nid, "E_invoke")]
+            candidate_defs.append((data.get("name"), data, invoke_preds))
+
+    if candidate_defs:
+        # Sort by incoming invocations descending
+        candidate_defs.sort(key=lambda x: len(x[2]), reverse=True)
+        fallback_name, fallback_node, fallback_callers = candidate_defs[0]
+        print(f"[*] Note: '{requested_symbol}' not found in this codebase. Auto-selected central function '{fallback_name}' ({len(fallback_callers)} caller sites).")
+        return fallback_name, [fallback_node], set(fallback_callers)
+
+    return requested_symbol, [], set()
 
 
 def measure_table_2(repo_path: str = None, seed_symbol: str = "validate_token"):
@@ -129,23 +175,14 @@ def measure_table_2(repo_path: str = None, seed_symbol: str = "validate_token"):
     builder = RepoGraphBuilder(multigraph=True)
     graph = builder.build_from_files(files)
 
-    # Establish Ground Truth Callers
-    ground_truth_callers = set()
-    seed_nodes = []
-
-    for nid, data in graph.nodes(data=True):
-        if data.get("name") == seed_symbol and data.get("type") == "def":
-            seed_nodes.append(data)
-            for pred in graph.predecessors(nid):
-                if has_edge_type(graph, pred, nid, "E_invoke"):
-                    ground_truth_callers.add(pred)
+    active_symbol, seed_nodes, ground_truth_callers = find_seed_symbol(graph, seed_symbol)
 
     if not seed_nodes:
-        print(f"Error: Symbol '{seed_symbol}' definition not found.")
+        print(f"Error: No function definitions found in repository.")
         return
 
     print(f"\n" + "=" * 92)
-    print(f"TABLE 2: RETRIEVAL ACCURACY ON DOWNSTREAM CALLER IDENTIFICATION (Seed: '{seed_symbol}')")
+    print(f"TABLE 2: RETRIEVAL ACCURACY ON DOWNSTREAM CALLER IDENTIFICATION (Seed: '{active_symbol}')")
     print("=" * 92)
     print(f"Ground Truth Target Call Sites ({len(ground_truth_callers)} total):")
     for c in sorted(ground_truth_callers):
@@ -214,14 +251,10 @@ def measure_table_3_ablation(repo_path: str = None, seed_symbol: str = "validate
     builder = RepoGraphBuilder(multigraph=True)
     graph = builder.build_from_files(files)
 
-    ground_truth_callers = set()
-    seed_nodes = []
-    for nid, data in graph.nodes(data=True):
-        if data.get("name") == seed_symbol and data.get("type") == "def":
-            seed_nodes.append(data)
-            for pred in graph.predecessors(nid):
-                if has_edge_type(graph, pred, nid, "E_invoke"):
-                    ground_truth_callers.add(pred)
+    active_symbol, seed_nodes, ground_truth_callers = find_seed_symbol(graph, seed_symbol)
+    if not seed_nodes:
+        print(f"Error: No definitions found for ablation.")
+        return {}
 
     print("\n" + "=" * 92)
     print("TABLE 3: SCIENTIFIC ABLATION STUDY (Contribution of Individual Extensions)")
@@ -285,7 +318,11 @@ def measure_table_4_test_impact(repo_path: str = None, seed_symbol: str = "valid
     builder = RepoGraphBuilder(multigraph=True)
     graph = builder.build_from_files(files)
 
-    seed_nodes = [d for n, d in graph.nodes(data=True) if d.get("name") == seed_symbol and d.get("type") == "def"]
+    active_symbol, seed_nodes, _ = find_seed_symbol(graph, seed_symbol)
+    if not seed_nodes:
+        print(f"Error: No definitions found for test impact analysis.")
+        return {"Recall": 0.0, "Precision": 0.0, "F1": 0.0, "MRR": 0.0}
+
     ego = extract_ego_graph(graph, seed_nodes, k=2)
     ranked = calculate_change_conditioned_ranking(graph, seed_nodes, k_hops=2)
     miner = GitCoChangeMiner(target_repo)
@@ -328,10 +365,10 @@ def main():
     parser.add_argument("--json", type=str, default=None, help="Output machine-readable JSON metrics to file")
     args = parser.parse_args()
 
-    t1 = measure_table_1(sample_repo_path=args.repo, github_slug=args.github)
-    t2 = measure_table_2(repo_path=args.repo, seed_symbol=args.symbol)
-    t3 = measure_table_3_ablation(repo_path=args.repo, seed_symbol=args.symbol)
-    t4 = measure_table_4_test_impact(repo_path=args.repo, seed_symbol=args.symbol)
+    resolved_repo = measure_table_1(sample_repo_path=args.repo, github_slug=args.github)
+    t2 = measure_table_2(repo_path=resolved_repo, seed_symbol=args.symbol)
+    t3 = measure_table_3_ablation(repo_path=resolved_repo, seed_symbol=args.symbol)
+    t4 = measure_table_4_test_impact(repo_path=resolved_repo, seed_symbol=args.symbol)
 
     if args.json:
         out_payload = {

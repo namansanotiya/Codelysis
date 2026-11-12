@@ -44,7 +44,7 @@ class RustParser(BaseParser):
                 tname = type_match.group(1)
                 if not is_builtin_or_stdlib(tname, "rust"):
                     node_id = f"{file_path}:L{idx}:def:{tname}"
-                    tnode = CodeNode(node_id, file_path, idx, tname, "def", "struct", clean)
+                    tnode = CodeNode(node_id, file_path, idx, tname, "def", "struct", snippet=clean)
                     definitions.append(tnode)
                     current_def = tnode
 
@@ -62,7 +62,7 @@ class RustParser(BaseParser):
                     category = "method" if current_impl else "function"
                     full_name = f"{current_impl}::{fname}" if current_impl else fname
                     node_id = f"{file_path}:L{idx}:def:{full_name}"
-                    fnode = CodeNode(node_id, file_path, idx, full_name, "def", category, clean)
+                    fnode = CodeNode(node_id, file_path, idx, full_name, "def", category, snippet=clean)
                     definitions.append(fnode)
                     current_def = fnode
 
@@ -81,7 +81,7 @@ class RustParser(BaseParser):
                     enclosing = current_def
                     if not enclosing or enclosing.name.split("::")[-1] != called:
                         ref_id = f"{file_path}:L{idx}:ref:{called}"
-                        ref_node = CodeNode(ref_id, file_path, idx, called, "ref", "call", clean)
+                        ref_node = CodeNode(ref_id, file_path, idx, called, "ref", "call", snippet=clean)
                         references.append((ref_node, enclosing.node_id if enclosing else None))
 
         return definitions, references

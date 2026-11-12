@@ -35,7 +35,7 @@ class GoParser(BaseParser):
                 tname = type_match.group(1)
                 if not is_builtin_or_stdlib(tname, "golang"):
                     node_id = f"{file_path}:L{idx}:def:{tname}"
-                    tnode = CodeNode(node_id, file_path, idx, tname, "def", "struct", clean)
+                    tnode = CodeNode(node_id, file_path, idx, tname, "def", "struct", snippet=clean)
                     definitions.append(tnode)
                     current_container = tnode
                     continue
@@ -48,7 +48,7 @@ class GoParser(BaseParser):
                 if not is_builtin_or_stdlib(mname, "golang"):
                     full_name = f"{rec_name}.{mname}"
                     node_id = f"{file_path}:L{idx}:def:{full_name}"
-                    mnode = CodeNode(node_id, file_path, idx, full_name, "def", "method", clean)
+                    mnode = CodeNode(node_id, file_path, idx, full_name, "def", "method", snippet=clean)
                     definitions.append(mnode)
                     current_container = mnode
                     continue
@@ -59,7 +59,7 @@ class GoParser(BaseParser):
                 fname = func_match.group(1)
                 if not is_builtin_or_stdlib(fname, "golang"):
                     node_id = f"{file_path}:L{idx}:def:{fname}"
-                    fnode = CodeNode(node_id, file_path, idx, fname, "def", "function", clean)
+                    fnode = CodeNode(node_id, file_path, idx, fname, "def", "function", snippet=clean)
                     definitions.append(fnode)
                     current_container = fnode
 
@@ -70,7 +70,7 @@ class GoParser(BaseParser):
                     enclosing = current_container
                     if not enclosing or enclosing.name.split(".")[-1] != called:
                         ref_id = f"{file_path}:L{idx}:ref:{called}"
-                        ref_node = CodeNode(ref_id, file_path, idx, called, "ref", "call", clean)
+                        ref_node = CodeNode(ref_id, file_path, idx, called, "ref", "call", snippet=clean)
                         references.append((ref_node, enclosing.node_id if enclosing else None))
 
         return definitions, references

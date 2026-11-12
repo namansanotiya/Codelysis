@@ -38,7 +38,7 @@ class JavaParser(BaseParser):
                 cname = class_match.group(1)
                 if not is_builtin_or_stdlib(cname, "java"):
                     node_id = f"{file_path}:L{idx}:def:{cname}"
-                    cnode = CodeNode(node_id, file_path, idx, cname, "def", "class", clean)
+                    cnode = CodeNode(node_id, file_path, idx, cname, "def", "class", snippet=clean)
                     definitions.append(cnode)
                     current_class = cnode
                     current_method = None
@@ -51,7 +51,7 @@ class JavaParser(BaseParser):
                 if not is_builtin_or_stdlib(mname, "java"):
                     full_name = f"{current_class.name}.{mname}" if current_class else mname
                     node_id = f"{file_path}:L{idx}:def:{full_name}"
-                    mnode = CodeNode(node_id, file_path, idx, full_name, "def", "method", clean)
+                    mnode = CodeNode(node_id, file_path, idx, full_name, "def", "method", snippet=clean)
                     definitions.append(mnode)
                     current_method = mnode
 
@@ -62,7 +62,7 @@ class JavaParser(BaseParser):
                     enclosing = current_method or current_class
                     if not enclosing or enclosing.name.split(".")[-1] != called:
                         ref_id = f"{file_path}:L{idx}:ref:{called}"
-                        ref_node = CodeNode(ref_id, file_path, idx, called, "ref", "call", clean)
+                        ref_node = CodeNode(ref_id, file_path, idx, called, "ref", "call", snippet=clean)
                         references.append((ref_node, enclosing.node_id if enclosing else None))
 
         return definitions, references
