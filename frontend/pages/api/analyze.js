@@ -55,7 +55,7 @@ export default async function handler(req, res) {
         cwd: rootDir,
         encoding: 'utf-8',
         maxBuffer: 50 * 1024 * 1024,
-        timeout: 180000
+        timeout: 300000
       },
       (err, stdout, stderr) => {
         if (err) {

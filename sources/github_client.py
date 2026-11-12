@@ -78,15 +78,26 @@ class GitHubClient(BaseSourceLoader):
 
             # Prioritize first max_files files
             paths_to_fetch = candidate_paths[:self.max_files]
-            logger.info(f"Fetching {len(paths_to_fetch)} source files via raw GitHub usercontent...")
+            logger.info(f"Fetching {len(paths_to_fetch)} source files via raw GitHub usercontent (parallel)...")
 
-            for path in paths_to_fetch:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            def fetch_single(path):
                 raw_url = f"https://raw.githubusercontent.com/{self.owner}/{self.repo}/{branch}/{path}"
-                raw_resp = requests.get(raw_url, headers=self._get_headers(), timeout=10)
-                if raw_resp.status_code == 200:
-                    files_dict[path] = raw_resp.text
-                else:
-                    logger.debug(f"Failed to fetch file content for {path}: {raw_resp.status_code}")
+                try:
+                    raw_resp = requests.get(raw_url, headers=self._get_headers(), timeout=10)
+                    if raw_resp.status_code == 200:
+                        return path, raw_resp.text
+                except Exception as ex:
+                    logger.debug(f"Failed to fetch file content for {path}: {ex}")
+                return path, None
+
+            with ThreadPoolExecutor(max_workers=16) as executor:
+                futures = {executor.submit(fetch_single, p): p for p in paths_to_fetch}
+                for future in as_completed(futures):
+                    path_result, content = future.result()
+                    if content is not None:
+                        files_dict[path_result] = content
 
         except Exception as e:
             logger.error(f"Error loading files from GitHub: {e}")

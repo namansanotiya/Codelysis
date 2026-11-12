@@ -394,14 +394,23 @@ export default function Home() {
 
           {/* Friendly Error Display */}
           {errorMsg && (
-            <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', borderRadius: 8, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>⚠️ <strong>Analysis issue:</strong> {errorMsg}</div>
-              <button
-                onClick={() => { setKHops(1); runAnalysis(repoInput, 1); }}
-                style={{ background: '#1e293b', border: '1px solid #ef4444', color: '#fff', borderRadius: 4, padding: '3px 8px', fontSize: 11, cursor: 'pointer' }}
-              >
-                Retry with k=1
-              </button>
+            <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', borderRadius: 8, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div>⚠️ <strong>Notice:</strong> {errorMsg}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => { setKHops(1); runAnalysis(repoInput, 1); }}
+                  style={{ background: '#1e293b', border: '1px solid #ef4444', color: '#fff', borderRadius: 4, padding: '3px 8px', fontSize: 11, cursor: 'pointer' }}
+                >
+                  Retry with k=1
+                </button>
+                <button
+                  onClick={() => setErrorMsg('')}
+                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 14, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}
+                  title="Dismiss notice"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           )}
         </div>

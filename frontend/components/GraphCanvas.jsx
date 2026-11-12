@@ -161,16 +161,17 @@ export default function GraphCanvas({
     const cx = width / 2;
     const cy = height / 2;
 
-    // 1. Initial Radial Placement
+    // 1. Initial Radial Placement scaled to network density
+    const spreadMultiplier = Math.max(1.0, Math.sqrt(nodes.length / 28));
     nodes.forEach((n, idx) => {
       const isSeed = n.status === 'seed';
       const isDirect = n.status && n.status.includes('direct');
-      const radius = isSeed ? 50 : isDirect ? 140 : 230;
+      const radius = (isSeed ? 60 : isDirect ? 150 : 260) * spreadMultiplier;
       const angle = (idx / Math.max(nodes.length, 1)) * 2 * Math.PI;
 
       posMap.set(n.id, {
-        x: cx + radius * Math.cos(angle) + (Math.random() - 0.5) * 20,
-        y: cy + radius * Math.sin(angle) + (Math.random() - 0.5) * 20,
+        x: cx + radius * Math.cos(angle) + (Math.random() - 0.5) * 40 * spreadMultiplier,
+        y: cy + radius * Math.sin(angle) + (Math.random() - 0.5) * 40 * spreadMultiplier,
         vx: 0,
         vy: 0,
         pinned: false
