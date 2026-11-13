@@ -15,18 +15,22 @@ This directory (`docs/`) contains the complete documentation suite for the proje
 
 ```text
 docs/
-├── README_Documentation_Index.md                <-- You are here
-├── Codelysis_Complete_Technical_Documentation.md <-- Full system manual & code reference
-├── Codelysis_Academic_Project_Report.md         <-- Formal university/conference paper
-├── Codelysis_Architecture_and_Workflows.md      <-- Visual diagrams, sequence charts & schemas
-├── Codelysis_Development_Status_and_Roadmap.md  <-- Component audit, debt, tests & roadmap
-└── Codelysis_Research_and_Evaluation_Plan.md    <-- Hypotheses, baselines, metrics & ablation
+├── README_Documentation_Index.md                      <-- You are here
+├── Codelysis_RepoGraph_Extension_and_Methodologies.md <-- Full extension whitepaper & comparison to RepoGraph
+├── Codelysis_IEEE_Manuscript_Prompt_and_Master_Summary.md <-- Master prompt & brief to generate IEEE paper via LLM
+├── Codelysis_Complete_Technical_Documentation.md       <-- Full system manual & code reference
+├── Codelysis_Academic_Project_Report.md               <-- Formal university/conference paper
+├── Codelysis_Architecture_and_Workflows.md            <-- Visual diagrams, sequence charts & schemas
+├── Codelysis_Development_Status_and_Roadmap.md        <-- Component audit, debt, tests & roadmap
+└── Codelysis_Research_and_Evaluation_Plan.md          <-- Hypotheses, baselines, metrics & ablation
 ```
 
 ### Document Directory & Descriptions
 
 | Document | Primary Audience | Core Contents |
 | :--- | :--- | :--- |
+| [**Codelysis RepoGraph Extension & Methodologies**](file:///Users/mac/Desktop/Codelysis/docs/Codelysis_RepoGraph_Extension_and_Methodologies.md) | Evaluators, Reviewers & Researchers | Standalone comparative whitepaper detailing how Codelysis extends RepoGraph (ICLR 2025): side-by-side comparison matrix, all 10 methodologies, MultiDiGraph, 6-tier scoped symbol resolution, weighted Dijkstra, Git co-change, and TIA. |
+| [**Codelysis IEEE Manuscript Prompt & Master Summary**](file:///Users/mac/Desktop/Codelysis/docs/Codelysis_IEEE_Manuscript_Prompt_and_Master_Summary.md) | LLM Users & Academic Authors | Copy-pasteable prompt and complete quantitative project brief to prompt frontier LLMs (Claude, GPT-4o, Gemini) to generate an IEEE conference/transactions manuscript in LaTeX. |
 | [**Codelysis Complete Technical Documentation**](file:///Users/mac/Desktop/Codelysis/docs/Codelysis_Complete_Technical_Documentation.md) | Software Engineers & System Architects | Exhaustive technical reference covering every file, function, class, data model, parser, graph constructor, traversal engine, and API endpoint in the repository. |
 | [**Codelysis Academic Project Report**](file:///Users/mac/Desktop/Codelysis/docs/Codelysis_Academic_Project_Report.md) | Academic Evaluators & Researchers | Formal university-level research paper format: Abstract, Introduction, Mathematical Foundations, Methodology, Experimental Evaluation, Case Studies, and References. |
 | [**Codelysis Architecture and Workflows**](file:///Users/mac/Desktop/Codelysis/docs/Codelysis_Architecture_and_Workflows.md) | System Designers & Visual Learners | Mermaid architecture diagrams, graph schemas, end-to-end sequence charts, 6-tier symbol resolution decision trees, and Canvas physics documentation. |
